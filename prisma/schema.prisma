@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../prisma/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  artist
+  producer
+  collaborator
+}
+
+model User {
+  id           String  @id @default(uuid()) @db.Uuid
+  email        String  @unique
+  role         Role
+  display_name String
+  bio          String
+  avatar_url   String
+  social_links Json
+  is_public    Boolean @default(true)
+
+  created_at          DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime         @updatedAt @db.Timestamptz(6)
+  clerkUserId         String           @unique
+  clerkPrimaryEmailId String? // Clerk tracks email ids; optional convenience
+  clerkExternalId     String?          @unique // If you mirror Clerk's external_id
+  clerkUsername       String?          @unique // If you allow usernames from Clerk
+  Song                Song[]           @relation(name: "UserSongs")
+  Studio_Session      Studio_Session[] @relation(name: "UserStudioSessions")
+  Collaboration       Collaboration[]  @relation(name: "UserCollaborations")
+
+  @@index([email])
+  @@index([clerkUserId])
+}
+
+enum Genre {
+  pop
+  hiphop
+  rock
+  electronic
+  jazz
+  classical
+  rnb
+  country
+  other
+}
+
+model Song {
+  id              String   @id @default(uuid()) @db.Uuid
+  title           String
+  artist_id       String   @db.Uuid
+  album           String
+  genre           String
+  bpm             Int
+  key_signature   String
+  duration        Int
+  release_date    DateTime @db.Date
+  file_url        String
+  cover_art_url   String
+  lyrics          String
+  description     String
+  seo_title       String
+  seo_description String
+  slug            String   @unique
+  is_public       Boolean  @default(true)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  artist        User            @relation(fields: [artist_id], references: [id], name: "UserSongs")
+  Collaboration Collaboration[] @relation(name: "SongCollaborations")
+
+  @@index([artist_id])
+  @@index([slug])
+  @@index([is_public, release_date])
+}
+
+enum SessionStatus {
+  planned
+  in_progress
+  completed
+}
+
+model Studio_Session {
+  id           String        @id @default(uuid()) @db.Uuid
+  title        String
+  creator_id   String        @db.Uuid
+  session_date DateTime      @db.Date
+  location     String
+  duration     Int
+  status       SessionStatus
+  notes        String
+  equipment    String
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  creator       User            @relation(fields: [creator_id], references: [id], name: "UserStudioSessions")
+  Collaboration Collaboration[] @relation(name: "SessionCollaborations")
+
+  @@index([creator_id])
+  @@index([session_date])
+  @@index([status])
+}
+
+model Collaboration {
+  id         String  @id @default(uuid()) @db.Uuid
+  song_id    String? @db.Uuid
+  session_id String? @db.Uuid
+  user_id    String  @db.Uuid
+  role       String
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  song    Song?           @relation(fields: [song_id], references: [id], name: "SongCollaborations")
+  session Studio_Session? @relation(fields: [session_id], references: [id], name: "SessionCollaborations")
+  user    User            @relation(fields: [user_id], references: [id], name: "UserCollaborations")
+
+  @@index([song_id])
+  @@index([session_id])
+  @@index([user_id])
+}
